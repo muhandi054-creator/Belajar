@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KAS ANDIAN</title>
+<style>
+body{margin:0;background:#e8dcc0;font-family:Georgia,serif;color:#3b2f1e}
+header{background:#6b4f2a;color:#fff;text-align:center;padding:18px}
+.container{padding:15px}
+.card{background:#f5ebd7;border:2px solid #b08d57;border-radius:10px;padding:12px;margin:10px 0}
+button{width:100%;padding:14px;margin:6px 0;border:none;border-radius:8px;font-weight:bold}
+.btn1{background:#2e8b57;color:#fff}
+.btn2{background:#b22222;color:#fff}
+.btn3{background:#c79a00;color:#fff}
+.btn4{background:#4169e1;color:#fff}
+input,select{width:100%;padding:10px;margin:5px 0;border:1px solid #999;border-radius:6px}
+.hidden{display:none}
+.trx{background:#fff8e8;border:1px solid #b08d57;padding:10px;margin:8px 0;border-radius:8px}
+.notif{position:fixed;top:10px;left:50%;transform:translateX(-50%);padding:12px;border-radius:8px;color:#fff;display:none}
+.green{background:#2e8b57}.red{background:#b22222}
+</style>
+</head>
+<body>
+
+<header>
+<h1>📒 KAS ANDIAN</h1>
+<p>Buku Kas Pribadi</p>
+</header>
+
+<div class="container">
+
+<div class="card">
+<b>Total Pemasukan:</b> Rp <span id="masuk">0</span><br><br>
+<b>Total Pengeluaran:</b> Rp <span id="keluar">0</span><br><br>
+<b>Hari Ini:</b> Rp <span id="hariini">0</span><br><br>
+<b>Bulan Ini:</b> Rp <span id="bulanini">0</span>
+</div>
+
+<button class="btn1" onclick="bukaForm('Pemasukan')">TAMBAH PEMASUKAN</button>
+<button class="btn2" onclick="bukaForm('Pengeluaran')">TAMBAH PENGELUARAN</button>
+
+<div id="form" class="card hidden">
+<h3 id="judul"></h3>
+<input id="nominal" type="number" placeholder="Nominal">
+<input id="ket" placeholder="Keterangan">
+<button class="btn4" onclick="simpanTrx()">SIMPAN</button>
+</div>
+
+<button class="btn3" onclick="toggleRiwayat()">RIWAYAT TRANSAKSI</button>
+
+<div id="riwayatBox" class="card hidden">
+<input id="cari" placeholder="Cari transaksi..." oninput="render()">
+<div id="riwayat"></div>
+</div>
+
+<button class="btn4" onclick="toggleBatas()">PENGATURAN BATAS</button>
+
+<div id="batasBox" class="card hidden">
+<input id="batasHarian" type="number" placeholder="Batas Harian">
+<input id="batasBulanan" type="number" placeholder="Batas Bulanan">
+<button class="btn4" onclick="simpanBatas()">SIMPAN BATAS</button>
+</div>
+
+</div>
+
+<div id="notif" class="notif"></div>
+
+<script>
+let jenis='Pemasukan';
+let db=JSON.parse(localStorage.getItem('kasandian'))||{
+trx:[],batasHarian:50000,batasBulanan:1500000
+};
+
+function save(){
+localStorage.setItem('kasandian',JSON.stringify(db));
+}
+
+function notif(txt,warna){
+let n=document.getElementById('notif');
+n.innerHTML=txt;
+n.className='notif '+warna;
+n.style.display='block';
+setTimeout(()=>n.style.display='none',3000);
+}
+
+function bukaForm(j){
+jenis=j;
+judul.innerHTML=j;
+form.classList.remove('hidden');
+}
+
+function simpanTrx(){
+let nominal=Number(document.getElementById('nominal').value);
+let ket=document.getElementById('ket').value;
+
+if(!nominal)return;
+
+db.trx.unshift({
+jenis,nominal,ket,
+tanggal:new Date().toISOString(),
+waktu:new Date().toLocaleString('id-ID')
+});
+
+save();
+
+notif(jenis+' berhasil disimpan',jenis==='Pemasukan'?'green':'red');
+
+render();
+}
+
+function toggleRiwayat(){
+riwayatBox.classList.toggle('hidden');
+}
+
+function toggleBatas(){
+batasBox.classList.toggle('hidden');
+document.getElementById('batasHarian').value=db.batasHarian;
+document.getElementById('batasBulanan').value=db.batasBulanan;
+}
+
+function simpanBatas(){
+db.batasHarian=Number(batasHarian.value);
+db.batasBulanan=Number(batasBulanan.value);
+save();
+notif('Batas berhasil disimpan','green');
+}
+
+function hapus(i){
+db.trx.splice(i,1);
+save();
+render();
+}
+
+function render(){
+let masuk=0,keluar=0,hari=0,bulan=0;
+let now=new Date();
+
+riwayat.innerHTML='';
+
+db.trx.forEach((t,i)=>{
+
+if(t.jenis==='Pemasukan') masuk+=t.nominal;
+else{
+keluar+=t.nominal;
+
+let d=new Date(t.tanggal);
+
+if(d.toDateString()===now.toDateString()) hari+=t.nominal;
+
+if(d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear())
+bulan+=t.nominal;
+}
+
+let cariText=(document.getElementById('cari')?.value||'').toLowerCase();
+if(cariText && !t.ket.toLowerCase().includes(cariText)) return;
+
+riwayat.innerHTML+=`
+<div class="trx">
+<b>${t.jenis}</b><br>
+Rp ${t.nominal.toLocaleString('id-ID')}<br>
+${t.ket}<br>
+${t.waktu}<br><br>
+<button onclick="hapus(${i})">HAPUS</button>
+</div>`;
+});
+
+document.getElementById('masuk').innerHTML=masuk.toLocaleString('id-ID');
+document.getElementById('keluar').innerHTML=keluar.toLocaleString('id-ID');
+document.getElementById('hariini').innerHTML=hari.toLocaleString('id-ID');
+document.getElementById('bulanini').innerHTML=bulan.toLocaleString('id-ID');
+
+if(hari>=db.batasHarian) notif('⚠ Batas harian tercapai','red');
+if(bulan>=db.batasBulanan) notif('⚠ Batas bulanan tercapai','red');
+}
+
+render();
+</script>
+</body>
+</html>
